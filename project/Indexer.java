@@ -1,6 +1,7 @@
 import java.nio.*;
 import java.io.*;
 import java.util.*;
+import java.lang.*;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardTokenizer;
@@ -29,7 +30,7 @@ import org.apache.lucene.util.Version;
 public class Indexer {
 
 	public static void main(String[] args) throws IOException, ParseException {
-
+		final long startTime = System.currentTimeMillis();
 		/* Creating new index and writer. */
 		// Starts creating the analyzer for different fields.
 		Map<String,Analyzer> analyzerPerField = new HashMap<String,Analyzer>();
@@ -49,10 +50,15 @@ public class Indexer {
 		String[] lines;
 		Scanner sc;
 		// Iterates through each text file (aka each movie).
+		System.out.println(data.length);
 		for (int i = 0; i < data.length; i++) {
 			temp = "";
 
 			// Reads the text file for its content.
+			if (data[i].isDirectory()) {
+				continue;
+			}
+
 			sc = new Scanner(data[i]);
 			if (sc.hasNextLine()) {
 				text = sc.useDelimiter("\\A").next();
@@ -61,6 +67,7 @@ public class Indexer {
 			// Splits the text looking for fields.
 			lines = text.split("\\r?\\n");
 			// Stores the title of the movie (first line of file).
+			document.add(new TextField("name", data[i].getName(), Field.Store.YES));
 			document.add(new TextField("title", lines[0], Field.Store.YES));
 			for (int j = 1; j < lines.length; j += 2) {
 				// Finds when the plot or movie info happens.
@@ -82,6 +89,10 @@ public class Indexer {
 		}
 		writer.close();
 
+		final long endTime = System.currentTimeMillis();
+
+		System.out.println("Total execution time: " + (endTime - startTime) );
+
 		/* Create searcher. */
 		IndexReader reader = DirectoryReader.open(directory);
 		IndexSearcher searcher = new IndexSearcher(reader);
@@ -90,7 +101,7 @@ public class Indexer {
 		MultiFieldQueryParser parser = new MultiFieldQueryParser(fields, aWrapper);
 		Query query = parser.parse(String.join(" ", args));
 		// Obtains the top 10 results and prints number of total hits.
-		TopDocs results = searcher.search(query, 10);
+		TopDocs results = searcher.search(query, 1);
 		System.out.println("# of Hits: " + results.totalHits);
 
 		/* Prints the content of the results. */
@@ -98,15 +109,14 @@ public class Indexer {
 		for(int i = 0; i < hits.length; i++) {
 		    int docId = hits[i].doc;
 		    Document d = searcher.doc(docId);
-		    System.out.println((i + 1) + ". " + d.get("title"));
-		    System.out.println(d.get("content"));
+		    String path = d.get("name");
 		}
 
 	}
 
 	/* Returns array of all file names. */
 	public static File[] getFileNames() {
-		File folder = new File("data/");
+		File folder = new File("exdata/");
 		return folder.listFiles();
 	}
 
